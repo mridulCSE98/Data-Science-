@@ -1,0 +1,243 @@
+---
+title: "Project Notebook"
+author: "Arshad Abedin Abir"
+date: "`r Sys.Date()`"
+output:
+  html_notebook: default
+  pdf_document: default
+
+
+```{r Install Packages}
+install.packages("ggplot2")
+install.packages("corrplot")
+install.packages("fastDummies")
+```
+
+# Loading Data
+
+```{r Google Drive csv reading}
+# https://drive.google.com/file/d/1Qi03fZldpiMveOKDOyWXro32cmvbhT5U/view?usp=sharing
+# Main https://drive.google.com/file/d/1hRDIcFzwLzJOD0gClR3z85r5RoS3YQce/view?usp=sharing
+# https://drive.google.com/uc?export=download&id=1M4T6tgYCRhr0EeHDloJyu-iXsT_H0MAw
+
+url <- "https://drive.google.com/uc?export=download&id=1hRDIcFzwLzJOD0gClR3z85r5RoS3YQce"
+df <- read.csv(url)
+df
+```
+
+# Handling Missing Values
+
+```{r check missing values}
+df[df == ""] <- NA
+colSums(is.na(df))
+```
+
+```{r Remove Seat_type row}
+df <- df[!is.na(df$Seat_Type), ]
+colSums(is.na(df))
+```
+
+```{r Added frequently used values in Movie_Genre}
+genre_counts <- table(df$Movie_Genre)
+sorted_genres <- sort(genre_counts, decreasing = TRUE)
+most_frequent_genre <- names(sorted_genres)[1]
+df$Movie_Genre[is.na(df$Movie_Genre)] <- most_frequent_genre
+
+colSums(is.na(df))
+```
+
+```{r Replace "Alone" with 0 in the Number_of_Person column}
+df$Number_of_Person[df$Number_of_Person == "Alone"] <- 0
+
+# Data conversion
+df$Number_of_Person <- as.integer(df$Number_of_Person)
+df
+```
+
+# Outlier Detection
+
+```{r Boxplot for Age}
+boxplot(df$Age, main = "Boxplot of Age", col = "orange")
+```
+
+```{r Outliers in Age}
+age_outliers <- boxplot.stats(df$Age)$out
+cat("Outliers in Age:\n")
+print(age_outliers)
+```
+
+```{r Replacing outlier in Age with mode}
+most_frequent_age<-as.numeric(names(sort(table(df$Age), decreasing=TRUE)[1]))
+df$Age[df$Age %in% age_outliers] <- most_frequent_age
+
+```
+
+```{r Boxplot for Ticket Price}
+boxplot(df$Ticket_Price, main="Boxplot for Ticket Price", col="green")
+```
+
+```{r Outliers in Ticket_Price}
+ticket_price_outliers <- boxplot.stats(df$Ticket_Price)$out
+cat("Outliers in Ticket Price:\n")
+print(ticket_price_outliers)
+```
+
+```{r replace the outliers in Ticket_Price with median}
+median_ticket_price <- median(df$Ticket_Price)
+df$Ticket_Price[df$Ticket_Price %in% ticket_price_outliers] <- median_ticket_price
+```
+
+```{r Boxplot for Number_of_person}
+boxplot(df$Number_of_Person, main = "Boxplot of Number of person", col = "blue")
+```
+
+# Data Exploration
+
+```{r Summary}
+summary(df)
+```
+
+```{r Histogram (Distribution of People going)}
+# Alone is consider  0
+hist(df$Number_of_Person, 
+     main="Distribution of People going", 
+     col="lightblue", 
+     xlab="", 
+     border="black")
+```
+
+```{r Histogram (Distribution of Ticket Prices)}
+hist(df$Ticket_Price, 
+     col = "skyblue", 
+     border = "black",
+     main = "Distribution of Ticket Prices", 
+     xlab = "Ticket Price",
+     ylab = "Frequency")
+
+```
+
+```{r Histogram (Distribution of Age)}
+hist(df$Age, 
+     main = "Distribution of Age", 
+     col = "skyblue", 
+     xlab = "Age",
+     ylab = "Frequency")
+```
+
+```{r Barplot}
+barplot(table(df$Purchase_Again), 
+        main="Count Possibility Of Buying", 
+        col=c("red", "green"))
+```
+
+```{r Scatter plot}
+colors <- c("No" = "blue", "Yes" = "orange")
+
+plot(df$Age, df$Ticket_Price,
+     col = colors[df$Purchase_Again],  
+     pch = 19,                          
+     xlab = "Age",
+     ylab = "Ticket Price",
+     main = "Age vs. Ticket Price (Colored by Purchase Again)")
+
+legend("topright", legend = names(colors), col = colors, pch = 19)
+
+```
+
+```{r ggBarPlot 1}
+# install.packages("ggplot2")
+
+library(ggplot2)
+
+ggplot(df, aes(x = Movie_Genre, fill = Movie_Genre)) +
+  geom_bar() +
+  labs(title = "Movie Genre Popularity", x = "Movie Genre", y = "Count") +
+  theme_minimal()
+
+```
+
+```{r ggBoxplot}
+ggplot(df, aes(x = Purchase_Again, y = Ticket_Price, fill = Purchase_Again)) +
+  geom_boxplot() +
+  labs(title = "Ticket Price by Purchase Again", x = "Purchase Again", y = "Ticket Price") +
+  theme_minimal()
+
+```
+
+```{r ggBarplot 2}
+ggplot(df, aes(x = Seat_Type, fill = Seat_Type)) +
+  geom_bar() +
+  labs(title = "Seat Type Preference", x = "Seat Type", y = "Count") +
+  theme_minimal()
+
+```
+
+```{r ggBoxPlot 2}
+ggplot(df, aes(x = as.factor(Number_of_Person), y = Ticket_Price, fill = as.factor(Number_of_Person))) +
+  geom_boxplot() +
+  labs(title = "Ticket Price by Group Size", x = "Number of People", y = "Ticket Price") +
+  theme_minimal()
+```
+
+`+
+
+```
+
+```{r}
+ggplot(df, aes(x = Seat_Type, fill = Purchase_Again)) +
+  geom_bar(position = "fill") +
+  labs(title = "Seat Type vs. Purchase Again", x = "Seat Type", y = "Proportion") +
+  theme_minimal()
+```
+
+```{r corrplot}
+# install.packages("corrplot")
+library(corrplot)
+
+df_numeric <- df[, c("Age", "Ticket_Price", "Number_of_Person")]
+
+cor_matrix <- cor(df_numeric)
+
+print(cor_matrix)
+
+corrplot(cor_matrix, method = "circle")
+
+```
+
+# Data Type Conversion
+
+```{r Data type of the column}
+str(df)
+```
+
+```{r Remove Ticket_ID}
+df$Ticket_ID <- NULL
+```
+
+```{r Convert Purchase_Again to binary (0/1)}
+df$Purchase_Again <- ifelse(df$Purchase_Again == "Yes", 1, 0)
+```
+
+# Data Transformation
+
+```{r Encoding Dummy variable(close to one hot encoding)}
+# install.packages("fastDummies")
+library(fastDummies)
+
+df <- dummy_cols(df, select_columns = c("Movie_Genre", "Seat_Type"), remove_selected_columns = TRUE)
+
+```
+
+```{r Normalization (Min-Max scaling)}
+min_max_norm <- function(x) {
+  return((x - min(x)) / (max(x) - min(x)))
+}
+
+numeric_cols <- c("Age", "Ticket_Price", "Number_of_Person")
+df_normalized <- df
+for (col in numeric_cols) {
+  df_normalized[[col]] <- min_max_norm(df[[col]])
+} 
+
+df_normalized
+```
